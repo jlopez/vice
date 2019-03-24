@@ -1,6 +1,12 @@
+# Temp files
+*~
+
 # Build artifacts
 *.a
 *.o
+src/monitor/mon_lex.c
+src/monitor/mon_parse.c
+src/monitor/mon_parse.h
 
 # Idea
 .idea
@@ -10,9 +16,14 @@ cmake-build-debug/
 
 # Autotools
 Makefile
+Makefile.in
+aclocal.m4
+autom4te.cache/
 config.log
 config.status
+configure
 src/config.h
+src/config.h.in
 src/stamp-h1
 src/resid/siddefs.h
 src/resid-dtv/siddtvdefs.h
@@ -22,6 +33,14 @@ src/debug.h
 src/arch/android/AnVICE/AndroidManifest.xml
 src/version.h
 src/vice-version.sh
+
+# Library exceptions
+!src/lib/libffmpeg/configure
+!src/lib/liblame/**/Makefile.in
+!src/lib/liblame/aclocal.m4
+!src/lib/liblame/config.h.in
+!src/lib/liblame/configure
+!src/lib/libx264/configure
 
 # Binaries
 src/c1541
