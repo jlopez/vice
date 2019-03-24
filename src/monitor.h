@@ -215,6 +215,30 @@ extern void monitor_cpuhistory_store(unsigned int addr, unsigned int op, unsigne
 extern void monitor_cpuhistory_fix_p2(unsigned int p2);
 extern void monitor_memmap_store(unsigned int addr, unsigned int type);
 
+/* CPU deep analysis prototypes */
+#define ACCESS_NONE                0
+#define ACCESS_READ                1
+#define ACCESS_WRITE               2
+#define ACCESS_READ_WRITE          3
+#define ACCESS_WORD_READ           4
+#define ACCESS_INDEXED_READ        5
+#define ACCESS_INDEXED_WRITE       6
+#define ACCESS_INDEXED_READ_WRITE  7
+#define ACCESS_INDEXED_WORD_READ   8
+#define ACCESS_INDIRECT_READ       9
+#define ACCESS_INDIRECT_WRITE      10
+#define ACCESS_INDIRECT_READ_WRITE 11
+#define ACCESS_INDIRECT_WORD_READ  12
+
+typedef struct {
+    uint8_t opcode_size:2;
+    uint8_t operand1_access:4;
+    uint8_t operand2_access:4;
+} opcode_analysis_info_t;
+
+extern void monitor_analysis_hook(CLOCK clock, uint16_t pc, uint8_t p0, uint16_t addr1, uint16_t addr2, opcode_analysis_info_t info);
+extern void monitor_analysis_list(uint32_t start_addr, uint32_t end_addr);
+
 /* memmap defines */
 #define MEMMAP_I_O_R    (1 << 8)
 #define MEMMAP_I_O_W    (1 << 7)

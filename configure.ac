@@ -51,6 +51,7 @@ VICE_ARG_ENABLE_LIST(portaudio,   [  --disable-portaudio     disables PortAudio 
 VICE_ARG_ENABLE_LIST(ahi,         [  --disable-ahi           disables AHI support])
 VICE_ARG_ENABLE_LIST(bundle,      [  --disable-bundle        do not use application bundles on Macs])
 VICE_ARG_ENABLE_LIST(cpuhistory,  [  --enable-cpuhistory     enable the 65xx cpu history feature])
+VICE_ARG_ENABLE_LIST(deepanalysis,[  --enable-deepanalysis   enable the 65xx deep analysis feature])
 VICE_ARG_ENABLE_LIST(lame,        [  --disable-lame          disable MP3 export with LAME])
 VICE_ARG_ENABLE_LIST(static-lame, [  --enable-static-lame    enable static LAME linking])
 VICE_ARG_ENABLE_LIST(rs232,       [  --disable-rs232         disable RS232 support])
@@ -249,6 +250,7 @@ HAVE_PROTO_OPENPCI_H_SUPPORT="no "
 
 HAVE_RESID_SUPPORT="no "
 FEATURE_CPUMEMHISTORY_SUPPORT="no "
+FEATURE_DEEPANALYSIS_SUPPORT="no "
 DEBUG_SUPPORT="no "
 USE_EMBEDDED_SUPPORT="no "
 
@@ -262,6 +264,11 @@ AC_CANONICAL_HOST
 if test x"$enable_cpuhistory" = "xyes"; then
   AC_DEFINE(FEATURE_CPUMEMHISTORY,,[Use the 65xx cpu history feature.])
   FEATURE_CPUMEMHISTORY_SUPPORT="yes"
+fi
+
+if test x"$enable_deepanalysis" = "xyes"; then
+  AC_DEFINE(FEATURE_DEEPANALYSIS,,[Use the 65xx deep analysis feature.])
+  FEATURE_DEEPANALYSIS_SUPPORT="yes"
 fi
 
 AM_CONDITIONAL(VICE_QUIET, test x"$verbose" != "xyes")
@@ -4515,6 +4522,7 @@ echo "----"
 
 echo "ReSID support              : $HAVE_RESID_SUPPORT (--with/without-resid)"
 echo "65xx CPU history support   : $FEATURE_CPUMEMHISTORY_SUPPORT (--enable/disable-cpuhistory)"
+echo "65xx deep analysis support : $FEATURE_DEEPANALYSIS_SUPPORT (--enable/disable-deepanalysis)"
 echo "Debug support              : $DEBUG_SUPPORT (--enable/disable-debug)"
 echo "Embedded data files support: $USE_EMBEDDED_SUPPORT (--enable/disable-embedded)"
 

@@ -465,56 +465,59 @@
 
 /* Addressing modes.  For convenience, page boundary crossing cycles and
    ``idle'' memory reads are handled here as well. */
+#define CROSSED_PAGE_BOUNDARY(addr, ofs) (((addr) & 0xff) < (ofs))
+#define PARTIAL_ADDRESS(addr, ofs) (CROSSED_PAGE_BOUNDARY(addr, ofs) ? (addr - 0x100) : (addr))
 
 #define FETCH_PARAM(addr) ((((int)(addr)) < bank_limit) ? bank_base[(addr)] : LOAD(addr))
 
 #define LOAD_ABS(addr) LOAD(addr)
 
-#define LOAD_ABS_X(addr)                                          \
-    ((((addr) & 0xff) + reg_x_read) > 0xff                        \
-     ? (LOAD(((addr) & 0xff00) | (((addr) + reg_x_read) & 0xff)), \
-        CLK_ADD(CLK, CLK_INT_CYCLE),                              \
-        LOAD((addr) + reg_x_read))                                \
-     : LOAD((addr) + reg_x_read))
+#define LOAD_ABS_INDEXED(addr, ofs)      \
+    (addr1 = (addr) + (ofs),             \
+     CROSSED_PAGE_BOUNDARY(addr1, (ofs)) \
+     ? (LOAD(addr1 - 0x100),             \
+        CLK_ADD(CLK, CLK_INT_CYCLE),     \
+        LOAD(addr1))                     \
+     : LOAD(addr1))
+
+#define LOAD_ABS_X(addr) LOAD_ABS_INDEXED(addr, reg_x_read)
+#define LOAD_ABS_Y(addr) LOAD_ABS_INDEXED(addr, reg_y_read)
 
 #define LOAD_ABS_X_RMW(addr)                                   \
     (LOAD(((addr) & 0xff00) | (((addr) + reg_x_read) & 0xff)), \
      CLK_ADD(CLK, CLK_INT_CYCLE),                              \
      LOAD((addr) + reg_x_read))
 
-#define LOAD_ABS_Y(addr)                                          \
-    ((((addr) & 0xff) + reg_y_read) > 0xff                        \
-     ? (LOAD(((addr) & 0xff00) | (((addr) + reg_y_read) & 0xff)), \
-        CLK_ADD(CLK, CLK_INT_CYCLE),                              \
-        LOAD((addr) + reg_y_read))                                \
-     : LOAD((addr) + reg_y_read))
-
 #define LOAD_ABS_Y_RMW(addr)                                   \
     (LOAD(((addr) & 0xff00) | (((addr) + reg_y_read) & 0xff)), \
      CLK_ADD(CLK, CLK_INT_CYCLE),                              \
      LOAD((addr) + reg_y_read))
 
-#define LOAD_IND_X(addr) (CLK_ADD(CLK, 3), LOAD(LOAD_ZERO_ADDR((addr) + reg_x_read)))
+#define LOAD_IND_X(addr)            \
+    (CLK_ADD(CLK, 3),               \
+     addr2 = (addr) + reg_x_read,   \
+     addr1 = LOAD_ZERO_ADDR(addr2), \
+     LOAD(addr1))
 
-#define LOAD_IND_Y(addr)                                                    \
-    (CLK_ADD(CLK, 2), ((LOAD_ZERO_ADDR((addr)) & 0xff) + reg_y_read) > 0xff \
-     ? (LOAD((LOAD_ZERO_ADDR((addr)) & 0xff00)                              \
-             | ((LOAD_ZERO_ADDR((addr)) + reg_y_read) & 0xff)),             \
-        CLK_ADD(CLK, CLK_INT_CYCLE),                                        \
-        LOAD(LOAD_ZERO_ADDR((addr)) + reg_y_read))                          \
-     : LOAD(LOAD_ZERO_ADDR((addr)) + reg_y_read))
+#define LOAD_IND_Y_BASE(addr, load)              \
+    (CLK_ADD(CLK, 2),                            \
+     addr2 = (addr),                             \
+     addr1 = LOAD_ZERO_ADDR(addr2) + reg_y_read, \
+     CROSSED_PAGE_BOUNDARY(addr1, reg_y_read)    \
+     ? (load(addr1 - 0x100),                     \
+        CLK_ADD(CLK, CLK_INT_CYCLE),             \
+        load(addr1))                             \
+     : load(addr1))
 
-#define LOAD_ZERO_X(addr) (LOAD_ZERO((addr) + reg_x_read))
+#define LOAD_IND_Y(addr)      LOAD_IND_Y_BASE(addr, LOAD)
+#define LOAD_IND_Y_BANK(addr) LOAD_IND_Y_BASE(addr, LOAD_IND)
 
-#define LOAD_ZERO_Y(addr) (LOAD_ZERO((addr) + reg_y_read))
+#define LOAD_ZERO_INDEXED(addr, ofs) (addr1 = (addr) + (ofs), LOAD_ZERO(addr1))
+#define LOAD_ZERO_X(addr) LOAD_ZERO_INDEXED(addr, reg_x_read)
+#define LOAD_ZERO_Y(addr) LOAD_ZERO_INDEXED(addr, reg_y_read)
 
-#define LOAD_IND_Y_BANK(addr)                                               \
-    (CLK_ADD(CLK, 2), ((LOAD_ZERO_ADDR((addr)) & 0xff) + reg_y_read) > 0xff \
-     ? (LOAD_IND((LOAD_ZERO_ADDR((addr)) & 0xff00)                          \
-                 | ((LOAD_ZERO_ADDR((addr)) + reg_y_read) & 0xff)),         \
-        CLK_ADD(CLK, CLK_INT_CYCLE),                                        \
-        LOAD_IND(LOAD_ZERO_ADDR((addr)) + reg_y_read))                      \
-     : LOAD_IND(LOAD_ZERO_ADDR((addr)) + reg_y_read))
+#define A1_LOAD(addr)      (addr1 = (addr), LOAD(addr1))
+#define A1_LOAD_ZERO(addr) (addr1 = (addr), LOAD_ZERO(addr1))
 
 #define STORE_ABS(addr, value, inc) \
     do {                            \
@@ -712,16 +715,16 @@ be found that works for both.
 
 #define ASL(addr, clk_inc, pc_inc, load_func, store_func) \
     do {                                                  \
-        unsigned int tmp_value, tmp_addr;                 \
+        unsigned int tmp_value;                           \
                                                           \
-        tmp_addr = (addr);                                \
-        tmp_value = load_func(tmp_addr);                  \
+        addr1 = (addr);                                   \
+        tmp_value = load_func(addr1);                     \
         LOCAL_SET_CARRY(tmp_value & 0x80);                \
         tmp_value = (tmp_value << 1) & 0xff;              \
         LOCAL_SET_NZ(tmp_value);                          \
         RMW_FLAG = 1;                                     \
         INC_PC(pc_inc);                                   \
-        store_func(tmp_addr, tmp_value, clk_inc);         \
+        store_func(addr1, tmp_value, clk_inc);            \
         RMW_FLAG = 0;                                     \
     } while (0)
 
@@ -913,15 +916,15 @@ be found that works for both.
 
 #define DEC(addr, clk_inc, pc_inc, load_func, store_func) \
     do {                                                  \
-        unsigned int tmp, tmp_addr;                       \
+        unsigned int tmp;                                 \
                                                           \
-        tmp_addr = (addr);                                \
-        tmp = load_func(tmp_addr);                        \
+        addr1 = (addr);                                   \
+        tmp = load_func(addr1);                           \
         tmp = (tmp - 1) & 0xff;                           \
         LOCAL_SET_NZ(tmp);                                \
         RMW_FLAG = 1;                                     \
         INC_PC(pc_inc);                                   \
-        store_func(tmp_addr, tmp, (clk_inc));             \
+        store_func(addr1, tmp, (clk_inc));                \
         RMW_FLAG = 0;                                     \
     } while (0)
 
@@ -950,14 +953,14 @@ be found that works for both.
 
 #define INC(addr, clk_inc, pc_inc, load_func, store_func) \
     do {                                                  \
-        unsigned int tmp, tmp_addr;                       \
+        unsigned int tmp;                                 \
                                                           \
-        tmp_addr = (addr);                                \
-        tmp = (load_func(tmp_addr) + 1) & 0xff;           \
+        addr1 = (addr);                                   \
+        tmp = (load_func(addr1) + 1) & 0xff;              \
         LOCAL_SET_NZ(tmp);                                \
         RMW_FLAG = 1;                                     \
         INC_PC(pc_inc);                                   \
-        store_func(tmp_addr, tmp, (clk_inc));             \
+        store_func(addr1, tmp, (clk_inc));                \
         RMW_FLAG = 0;                                     \
     } while (0)
 
@@ -1037,7 +1040,8 @@ be found that works for both.
 
 #define JMP_IND()                                                    \
     do {                                                             \
-        uint16_t dest_addr;                                              \
+        uint16_t dest_addr;                                          \
+        addr1 = (p2);                                                \
         dest_addr = LOAD(p2);                                        \
         CLK_ADD(CLK, 1);                                             \
         dest_addr |= (LOAD((p2 & 0xff00) | ((p2 + 1) & 0xff)) << 8); \
@@ -1106,16 +1110,16 @@ be found that works for both.
 
 #define LSR(addr, clk_inc, pc_inc, load_func, store_func) \
     do {                                                  \
-        unsigned int tmp, tmp_addr;                       \
+        unsigned int tmp;                                 \
                                                           \
-        tmp_addr = (addr);                                \
-        tmp = load_func(tmp_addr);                        \
+        addr1 = (addr);                                   \
+        tmp = load_func(addr1);                           \
         LOCAL_SET_CARRY(tmp & 0x01);                      \
         tmp >>= 1;                                        \
         LOCAL_SET_NZ(tmp);                                \
         RMW_FLAG = 1;                                     \
         INC_PC(pc_inc);                                   \
-        store_func(tmp_addr, tmp, clk_inc);               \
+        store_func(addr1, tmp, clk_inc);                  \
         RMW_FLAG = 0;                                     \
     } while (0)
 
@@ -1275,10 +1279,10 @@ be found that works for both.
 
 #define ROR(addr, clk_inc, pc_inc, load_func, store_func) \
     do {                                                  \
-        unsigned int src, tmp_addr;                       \
+        unsigned int src;                                 \
                                                           \
-        tmp_addr = (addr);                                \
-        src = load_func(tmp_addr);                        \
+        addr1 = (addr);                                   \
+        src = load_func(addr1);                           \
         if (reg_p & P_CARRY) {                            \
             src |= 0x100;                                 \
         }                                                 \
@@ -1287,7 +1291,7 @@ be found that works for both.
         LOCAL_SET_NZ(src);                                \
         RMW_FLAG = 1;                                     \
         INC_PC(pc_inc);                                   \
-        store_func(tmp_addr, src, (clk_inc));             \
+        store_func(addr1, src, (clk_inc));                \
         RMW_FLAG = 0;                                     \
     } while (0)
 
@@ -1596,66 +1600,52 @@ be found that works for both.
 
 #define STA(addr, clk_inc1, clk_inc2, pc_inc, store_func) \
     do {                                                  \
-        unsigned int tmp;                                 \
-                                                          \
         CLK_ADD(CLK, (clk_inc1));                         \
-        tmp = (addr);                                     \
+        addr1 = (addr);                                   \
         INC_PC(pc_inc);                                   \
-        store_func(tmp, reg_a_read, clk_inc2);            \
+        store_func(addr1, reg_a_read, clk_inc2);          \
     } while (0)
 
-#define STA_ZERO(addr, clk_inc, pc_inc) \
-    do {                                \
-        CLK_ADD(CLK, (clk_inc));        \
-        STORE_ZERO((addr), reg_a_read); \
-        INC_PC(pc_inc);                 \
+#define ST_ZERO(addr, clk_inc, pc_inc, reg) \
+    do {                                    \
+        CLK_ADD(CLK, (clk_inc));            \
+        addr1 = (addr);                     \
+        STORE_ZERO(addr1, (reg));           \
+        INC_PC(pc_inc);                     \
     } while (0)
+
+#define STA_ZERO(addr, clk_inc, pc_inc) ST_ZERO(addr, clk_inc, pc_inc, reg_a_read)
 
 #define STA_IND_Y(addr)                                         \
     do {                                                        \
-        unsigned int tmp;                                       \
-                                                                \
         CLK_ADD(CLK, 2);                                        \
-        tmp = LOAD_ZERO_ADDR(addr);                             \
-        LOAD_IND((tmp & 0xff00) | ((tmp + reg_y_read) & 0xff)); \
+        addr2 = (addr);                                         \
+        addr1 = LOAD_ZERO_ADDR(addr2) + reg_y_read;             \
+        LOAD_IND(PARTIAL_ADDRESS(addr1, reg_y_read));           \
         CLK_ADD(CLK, CLK_IND_Y_W);                              \
         INC_PC(2);                                              \
-        STORE_IND(tmp + reg_y_read, reg_a_read);                \
+        STORE_IND(addr1, reg_a_read);              \
     } while (0)
 
 #define STX(addr, clk_inc, pc_inc) \
     do {                           \
-        unsigned int tmp;          \
-                                   \
-        tmp = (addr);              \
+        addr1 = (addr);            \
         CLK_ADD(CLK, (clk_inc));   \
         INC_PC(pc_inc);            \
-        STORE(tmp, reg_x_read);    \
+        STORE(addr1, reg_x_read);  \
     } while (0)
 
-#define STX_ZERO(addr, clk_inc, pc_inc) \
-    do {                                \
-        CLK_ADD(CLK, (clk_inc));        \
-        STORE_ZERO((addr), reg_x_read); \
-        INC_PC(pc_inc);                 \
-    } while (0)
+#define STX_ZERO(addr, clk_inc, pc_inc) ST_ZERO(addr, clk_inc, pc_inc, reg_x_read)
 
 #define STY(addr, clk_inc, pc_inc) \
     do {                           \
-        unsigned int tmp;          \
-                                   \
-        tmp = (addr);              \
+        addr1 = (addr);            \
         CLK_ADD(CLK, (clk_inc));   \
         INC_PC(pc_inc);            \
-        STORE(tmp, reg_y_read);    \
+        STORE(addr1, reg_y_read);  \
     } while (0)
 
-#define STY_ZERO(addr, clk_inc, pc_inc) \
-    do {                                \
-        CLK_ADD(CLK, (clk_inc));        \
-        STORE_ZERO((addr), reg_y_read); \
-        INC_PC(pc_inc);                 \
-    } while (0)
+#define STY_ZERO(addr, clk_inc, pc_inc) ST_ZERO(addr, clk_inc, pc_inc, reg_y_read)
 
 #define TAX()                     \
     do {                          \
@@ -1698,6 +1688,272 @@ be found that works for both.
         INC_PC(1);                \
     } while (0)
 
+
+/* ------------------------------------------------------------------------- */
+#ifdef FEATURE_DEEPANALYSIS
+#ifndef DRIVE_CPU
+
+static const opcode_analysis_info_t analysis_info_tab[] = {
+/* 0x00 BRK          */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x01 ORA ($nn,X)  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_INDEXED_WORD_READ },
+/* 0x02 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x03 SLO ($nn,X)  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_INDEXED_WORD_READ },
+/* 0x04 NOOP $nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x05 ORA $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0x06 ASL $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x07 SLO $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x08 PHP          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x09 ORA #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x0a ASL A        */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x0b ANC #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x0c NOOP $nnnn   */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0x0d ORA $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0x0e ASL $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x0f SLO $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x10 BPL $nnnn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x11 ORA ($nn),Y  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_WORD_READ },
+/* 0x12 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x13 SLO ($nn),Y  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_WORD_READ },
+/* 0x14 NOOP $nn,X   */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x15 ORA $nn,X    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x16 ASL $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x17 SLO $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x18 CLC          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x19 ORA $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x1a NOOP         */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x1b SLO $nnnn,Y  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x1c NOOP $nnnn,X */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0x1d ORA $nnnn,X  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x1e ASL $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x1f SLO $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x20 JSR $nnnn    */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0x21 AND ($nn,X)  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_INDEXED_WORD_READ },
+/* 0x22 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x23 RLA ($nn,X)  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_INDEXED_WORD_READ },
+/* 0x24 BIT $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0x25 AND $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0x26 ROL $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x27 RLA $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x28 PLP          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x29 AND #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x2a ROL A        */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x2b ANC #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x2c BIT $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0x2d AND $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0x2e ROL $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x2f RLA $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x30 BMI $nnnn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x31 AND ($nn),Y  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_WORD_READ },
+/* 0x32 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x33 RLA ($nn),Y  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_WORD_READ },
+/* 0x34 NOOP $nn,X   */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x35 AND $nn,X    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x36 ROL $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x37 RLA $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x38 SEC          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x39 AND $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x3a NOOP         */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x3b RLA $nnnn,Y  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x3c NOOP $nnnn,X */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0x3d AND $nnnn,X  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x3e ROL $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x3f RLA $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x40 RTI          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x41 EOR ($nn,X)  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_INDEXED_WORD_READ },
+/* 0x42 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x43 SRE ($nn,X)  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_INDEXED_WORD_READ },
+/* 0x44 NOOP $nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x45 EOR $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0x46 LSR $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x47 SRE $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x48 PHA          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x49 EOR #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x4a LSR A        */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x4b ASR #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x4c JMP $nnnn    */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0x4d EOR $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0x4e LSR $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x4f SRE $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x50 BVC $nnnn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x51 EOR ($nn),Y  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_WORD_READ },
+/* 0x52 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x53 SRE ($nn),Y  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_WORD_READ },
+/* 0x54 NOOP $nn,X   */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x55 EOR $nn,X    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x56 LSR $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x57 SRE $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x58 CLI          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x59 EOR $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x5a NOOP         */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x5b SRE $nnnn,Y  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x5c NOOP $nnnn,X */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0x5d EOR $nnnn,X  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x5e LSR $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x5f SRE $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x60 RTS          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x61 ADC ($nn,X)  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_INDEXED_WORD_READ },
+/* 0x62 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x63 RRA ($nn,X)  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_INDEXED_WORD_READ },
+/* 0x64 NOOP $nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x65 ADC $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0x66 ROR $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x67 RRA $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x68 PLA          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x69 ADC #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x6a ROR A        */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x6b ARR #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x6c JMP ($nnnn)  */ { 3, ACCESS_WORD_READ,           ACCESS_NONE },
+/* 0x6d ADC $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0x6e ROR $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x6f RRA $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0x70 BVS $nnnn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x71 ADC ($nn),Y  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_WORD_READ },
+/* 0x72 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x73 RRA ($nn),Y  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_WORD_READ },
+/* 0x74 NOOP $nn,X   */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x75 ADC $nn,X    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x76 ROR $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x77 RRA $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x78 SEI          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x79 ADC $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x7a NOOP         */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x7b RRA $nnnn,Y  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x7c NOOP $nnnn,X */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0x7d ADC $nnnn,X  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0x7e ROR $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x7f RRA $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0x80 NOOP #$nn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x81 STA ($nn,X)  */ { 2, ACCESS_INDIRECT_WRITE,      ACCESS_INDEXED_WORD_READ },
+/* 0x82 NOOP #$nn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x83 SAX ($nn,X)  */ { 2, ACCESS_INDIRECT_WRITE,      ACCESS_INDEXED_WORD_READ },
+/* 0x84 STY $nn      */ { 2, ACCESS_WRITE,               ACCESS_NONE },
+/* 0x85 STA $nn      */ { 2, ACCESS_WRITE,               ACCESS_NONE },
+/* 0x86 STX $nn      */ { 2, ACCESS_WRITE,               ACCESS_NONE },
+/* 0x87 SAX $nn      */ { 2, ACCESS_WRITE,               ACCESS_NONE },
+/* 0x88 DEY          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x89 NOOP #$nn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x8a TXA          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x8b ANE #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x8c STY $nnnn    */ { 3, ACCESS_WRITE,               ACCESS_NONE },
+/* 0x8d STA $nnnn    */ { 3, ACCESS_WRITE,               ACCESS_NONE },
+/* 0x8e STX $nnnn    */ { 3, ACCESS_WRITE,               ACCESS_NONE },
+/* 0x8f SAX $nnnn    */ { 3, ACCESS_WRITE,               ACCESS_NONE },
+/* 0x90 BCC $nnnn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0x91 STA ($nn),Y  */ { 2, ACCESS_INDIRECT_WRITE,      ACCESS_WORD_READ },
+/* 0x92 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x93 SHA ($nn),Y  */ { 2, ACCESS_INDIRECT_WRITE,      ACCESS_WORD_READ },
+/* 0x94 STY $nn,X    */ { 2, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x95 STA $nn,X    */ { 2, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x96 STX $nn,Y    */ { 2, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x97 SAX $nn,Y    */ { 2, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x98 TYA          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x99 STA $nnnn,Y  */ { 3, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x9a TXS          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0x9b SHS $nnnn,Y  */ { 3, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x9c SHY $nnnn,X  */ { 3, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x9d STA $nnnn,X  */ { 3, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x9e SHX $nnnn,Y  */ { 3, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0x9f SHA $nnnn,Y  */ { 3, ACCESS_INDEXED_WRITE,       ACCESS_NONE },
+/* 0xa0 LDY #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xa1 LDA ($nn,X)  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_INDEXED_WORD_READ },
+/* 0xa2 LDX #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xa3 LAX ($nn,X)  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_INDEXED_WORD_READ },
+/* 0xa4 LDY $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0xa5 LDA $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0xa6 LDX $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0xa7 LAX $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0xa8 TAY          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xa9 LDA #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xaa TAX          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xab LXA #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xac LDY $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0xad LDA $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0xae LDX $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0xaf LAX $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0xb0 BCS $nnnn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xb1 LDA ($nn),Y  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_WORD_READ },
+/* 0xb2 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xb3 LAX ($nn),Y  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_WORD_READ },
+/* 0xb4 LDY $nn,X    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xb5 LDA $nn,X    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xb6 LDX $nn,Y    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xb7 LAX $nn,Y    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xb8 CLV          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xb9 LDA $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xba TSX          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xbb LAS $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xbc LDY $nnnn,X  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xbd LDA $nnnn,X  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xbe LDX $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xbf LAX $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xc0 CPY #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xc1 CMP ($nn,X)  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_INDEXED_WORD_READ },
+/* 0xc2 NOOP #$nn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xc3 DCP ($nn,X)  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_INDEXED_WORD_READ },
+/* 0xc4 CPY $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0xc5 CMP $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0xc6 DEC $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0xc7 DCP $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0xc8 INY          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xc9 CMP #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xca DEX          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xcb SBX #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xcc CPY $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0xcd CMP $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0xce DEC $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0xcf DCP $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0xd0 BNE $nnnn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xd1 CMP ($nn),Y  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_WORD_READ },
+/* 0xd2 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xd3 DCP ($nn),Y  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_WORD_READ },
+/* 0xd4 NOOP $nn,X   */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xd5 CMP $nn,X    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xd6 DEC $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xd7 DCP $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xd8 CLD          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xd9 CMP $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xda NOOP         */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xdb DCP $nnnn,Y  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xdc NOOP $nnnn,X */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0xdd CMP $nnnn,X  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xde DEC $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xdf DCP $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xe0 CPX #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xe1 SBC ($nn,X)  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_INDEXED_WORD_READ },
+/* 0xe2 NOOP #$nn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xe3 ISB ($nn,X)  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_INDEXED_WORD_READ },
+/* 0xe4 CPX $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0xe5 SBC $nn      */ { 2, ACCESS_READ,                ACCESS_NONE },
+/* 0xe6 INC $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0xe7 ISB $nn      */ { 2, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0xe8 INX          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xe9 SBC #$nn     */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xea NOP          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xeb USBC #$nn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xec CPX $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0xed SBC $nnnn    */ { 3, ACCESS_READ,                ACCESS_NONE },
+/* 0xee INC $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0xef ISB $nnnn    */ { 3, ACCESS_READ_WRITE,          ACCESS_NONE },
+/* 0xf0 BEQ $nnnn    */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xf1 SBC ($nn),Y  */ { 2, ACCESS_INDIRECT_READ,       ACCESS_WORD_READ },
+/* 0xf2 JAM          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xf3 ISB ($nn),Y  */ { 2, ACCESS_INDIRECT_READ_WRITE, ACCESS_WORD_READ },
+/* 0xf4 NOOP $nn,X   */ { 2, ACCESS_NONE,                ACCESS_NONE },
+/* 0xf5 SBC $nn,X    */ { 2, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xf6 INC $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xf7 ISB $nn,X    */ { 2, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xf8 SED          */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xf9 SBC $nnnn,Y  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xfa NOOP         */ { 1, ACCESS_NONE,                ACCESS_NONE },
+/* 0xfb ISB $nnnn,Y  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xfc NOOP $nnnn,X */ { 3, ACCESS_NONE,                ACCESS_NONE },
+/* 0xfd SBC $nnnn,X  */ { 3, ACCESS_INDEXED_READ,        ACCESS_NONE },
+/* 0xfe INC $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE },
+/* 0xff ISB $nnnn,X  */ { 3, ACCESS_INDEXED_READ_WRITE,  ACCESS_NONE }
+};
+
+#endif
+#endif
 
 /* ------------------------------------------------------------------------- */
 
@@ -2005,6 +2261,8 @@ static const uint8_t rewind_fetch_tab[] = {
 
     {
         opcode_t opcode;
+        uint32_t addr1 = 0xffffffff;
+        uint32_t addr2 = 0xffffffff;
 #ifdef DEBUG
         CLOCK debug_clk;
 #ifdef DRIVE_CPU
@@ -2135,7 +2393,7 @@ trap_skipped:
                 break;
 
             case 0x05:          /* ORA $nn */
-                ORA(LOAD_ZERO(p1), 1, 2);
+                ORA(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0x06:          /* ASL $nn */
@@ -2175,7 +2433,8 @@ trap_skipped:
                 break;
 
             case 0x0d:          /* ORA $nnnn */
-                ORA(LOAD(p2), 1, 3);
+
+                ORA(A1_LOAD(p2), 1, 3);
                 break;
 
             case 0x0e:          /* ASL $nnnn */
@@ -2274,11 +2533,11 @@ trap_skipped:
                 break;
 
             case 0x24:          /* BIT $nn */
-                BIT(LOAD_ZERO(p1), 2);
+                BIT(A1_LOAD_ZERO(p1), 2);
                 break;
 
             case 0x25:          /* AND $nn */
-                AND(LOAD_ZERO(p1), 1, 2);
+                AND(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0x26:          /* ROL $nn */
@@ -2302,11 +2561,11 @@ trap_skipped:
                 break;
 
             case 0x2c:          /* BIT $nnnn */
-                BIT(LOAD(p2), 3);
+                BIT(A1_LOAD(p2), 3);
                 break;
 
             case 0x2d:          /* AND $nnnn */
-                AND(LOAD(p2), 1, 3);
+                AND(A1_LOAD(p2), 1, 3);
                 break;
 
             case 0x2e:          /* ROL $nnnn */
@@ -2378,7 +2637,7 @@ trap_skipped:
                 break;
 
             case 0x45:          /* EOR $nn */
-                EOR(LOAD_ZERO(p1), 1, 2);
+                EOR(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0x46:          /* LSR $nn */
@@ -2410,7 +2669,7 @@ trap_skipped:
                 break;
 
             case 0x4d:          /* EOR $nnnn */
-                EOR(LOAD(p2), 1, 3);
+                EOR(A1_LOAD(p2), 1, 3);
                 break;
 
             case 0x4e:          /* LSR $nnnn */
@@ -2491,7 +2750,7 @@ trap_skipped:
                 break;
 
             case 0x65:          /* ADC $nn */
-                ADC(LOAD_ZERO(p1), 1, 2);
+                ADC((addr1 = (p1), LOAD_ZERO(addr1)), 1, 2);
                 break;
 
             case 0x66:          /* ROR $nn */
@@ -2523,7 +2782,7 @@ trap_skipped:
                 break;
 
             case 0x6d:          /* ADC $nnnn */
-                ADC(LOAD(p2), 1, 3);
+                ADC(A1_LOAD(p2), 1, 3);
                 break;
 
             case 0x6e:          /* ROR $nnnn */
@@ -2732,19 +2991,19 @@ trap_skipped:
                 break;
 
             case 0xa4:          /* LDY $nn */
-                LDY(LOAD_ZERO(p1), 1, 2);
+                LDY(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0xa5:          /* LDA $nn */
-                LDA(LOAD_ZERO(p1), 1, 2);
+                LDA(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0xa6:          /* LDX $nn */
-                LDX(LOAD_ZERO(p1), 1, 2);
+                LDX(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0xa7:          /* LAX $nn */
-                LAX(LOAD_ZERO(p1), 1, 2);
+                LAX(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0xa8:          /* TAY */
@@ -2764,19 +3023,19 @@ trap_skipped:
                 break;
 
             case 0xac:          /* LDY $nnnn */
-                LDY(LOAD(p2), 1, 3);
+                LDY((addr1 = (p2), LOAD(addr1)), 1, 3);
                 break;
 
             case 0xad:          /* LDA $nnnn */
-                LDA(LOAD(p2), 1, 3);
+                LDA((addr1 = (p2), LOAD(addr1)), 1, 3);
                 break;
 
             case 0xae:          /* LDX $nnnn */
-                LDX(LOAD(p2), 1, 3);
+                LDX((addr1 = (p2), LOAD(addr1)), 1, 3);
                 break;
 
             case 0xaf:          /* LAX $nnnn */
-                LAX(LOAD(p2), 1, 3);
+                LAX((addr1 = (p2), LOAD(addr1)), 1, 3);
                 break;
 
             case 0xb0:          /* BCS $nnnn */
@@ -2852,11 +3111,11 @@ trap_skipped:
                 break;
 
             case 0xc4:          /* CPY $nn */
-                CPY(LOAD_ZERO(p1), 1, 2);
+                CPY((addr1 = (p1), LOAD_ZERO(addr1)), 1, 2);
                 break;
 
             case 0xc5:          /* CMP $nn */
-                CMP(LOAD_ZERO(p1), 1, 2);
+                CMP((addr1 = (p1), LOAD_ZERO(addr1)), 1, 2);
                 break;
 
             case 0xc6:          /* DEC $nn */
@@ -2884,11 +3143,11 @@ trap_skipped:
                 break;
 
             case 0xcc:          /* CPY $nnnn */
-                CPY(LOAD(p2), 1, 3);
+                CPY(A1_LOAD(p2), 1, 3);
                 break;
 
             case 0xcd:          /* CMP $nnnn */
-                CMP(LOAD(p2), 1, 3);
+                CMP(A1_LOAD(p2), 1, 3);
                 break;
 
             case 0xce:          /* DEC $nnnn */
@@ -2960,11 +3219,11 @@ trap_skipped:
                 break;
 
             case 0xe4:          /* CPX $nn */
-                CPX(LOAD_ZERO(p1), 1, 2);
+                CPX(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0xe5:          /* SBC $nn */
-                SBC(LOAD_ZERO(p1), 1, 2);
+                SBC(A1_LOAD_ZERO(p1), 1, 2);
                 break;
 
             case 0xe6:          /* INC $nn */
@@ -2992,11 +3251,11 @@ trap_skipped:
                 break;
 
             case 0xec:          /* CPX $nnnn */
-                CPX(LOAD(p2), 1, 3);
+                CPX(A1_LOAD(p2), 1, 3);
                 break;
 
             case 0xed:          /* SBC $nnnn */
-                SBC(LOAD(p2), 1, 3);
+                SBC(A1_LOAD(p2), 1, 3);
                 break;
 
             case 0xee:          /* INC $nnnn */
@@ -3055,5 +3314,12 @@ trap_skipped:
                 ISB(p2, 0, CLK_ABS_I_RMW2, 3, LOAD_ABS_X_RMW, STORE_ABS_X_RMW);
                 break;
         }
+#ifdef FEATURE_DEEPANALYSIS
+#ifndef DRIVE_CPU
+        opcode_analysis_info_t analysis_info = analysis_info_tab[p0];
+        if (analysis_info.operand1_access != ACCESS_NONE)
+            monitor_analysis_hook(CLK, LAST_OPCODE_ADDR, p0, addr1, addr2, analysis_info);
+#endif
+#endif
     }
 }

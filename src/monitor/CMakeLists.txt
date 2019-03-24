@@ -23,6 +23,7 @@ add_library(monitor
         asm6809.c
         asmR65C02.c
         asmz80.c
+        mon_analysis.c
         mon_assemble6502.c
         mon_assemble65816.c
         mon_assemble6809.c

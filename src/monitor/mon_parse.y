@@ -69,6 +69,7 @@ extern char *alloca();
 #include "console.h"
 #include "lib.h"
 #include "machine.h"
+#include "mon_analysis.h"
 #include "mon_breakpoint.h"
 #include "mon_command.h"
 #include "mon_disassemble.h"
@@ -164,6 +165,7 @@ extern int cur_len, last_len;
 %token CMD_RESOURCE_GET CMD_RESOURCE_SET CMD_LOAD_RESOURCES CMD_SAVE_RESOURCES
 %token CMD_ATTACH CMD_DETACH CMD_MON_RESET CMD_TAPECTRL CMD_CARTFREEZE
 %token CMD_CPUHISTORY CMD_MEMMAPZAP CMD_MEMMAPSHOW CMD_MEMMAPSAVE
+%token CMD_DA_INFO CMD_DA_LIST
 %token CMD_COMMENT CMD_LIST CMD_STOPWATCH RESET
 %token CMD_EXPORT CMD_AUTOSTART CMD_AUTOLOAD CMD_MAINCPU_TRACE
 %token<str> CMD_LABEL_ASGN
@@ -372,6 +374,12 @@ memory_rules: CMD_MOVE address_range opt_sep address end_cmd
               { mon_memmap_show($3,$4[0],$4[1]); }
             | CMD_MEMMAPSAVE filename opt_sep expression end_cmd
               { mon_memmap_save($2,$4); }
+            | CMD_DA_INFO end_cmd
+              { mon_analysis_info(); }
+            | CMD_DA_LIST address_opt_range end_cmd
+              { mon_analysis_list($2[0], $2[1]); }
+            | CMD_DA_LIST end_cmd
+              { mon_analysis_list(BAD_ADDR, BAD_ADDR); }
             ;
 
 checkpoint_rules: CMD_BREAK opt_mem_op address_opt_range opt_if_cond_expr end_cmd

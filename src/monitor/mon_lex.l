@@ -241,6 +241,8 @@ HDIGIT  [0-9a-f]
         watch|w         { BEGIN(INITIAL);       return CMD_WATCH; }
         yydebug         { BEGIN(INITIAL);       return CMD_YYDEBUG; }
         maincpu_trace   { BEGIN(INITIAL);       return CMD_MAINCPU_TRACE; }
+        dai|da_info     { BEGIN(INITIAL);       return CMD_DA_INFO; }
+        dal|da_list     { BEGIN(INITIAL);       return CMD_DA_LIST; }
 }
  /* this is not a real command, but could be a label name for a label assignment */
 <CMD>[_a-zA-Z][_a-zA-Z0-9]* { BEGIN(LABEL_ASGN); yylval.str = lib_stralloc(yytext); return CMD_LABEL_ASGN; }

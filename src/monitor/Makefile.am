@@ -23,6 +23,7 @@ libmonitor_a_SOURCES = \
 	asmz80.c \
 	asm.h \
 	mon_parse.y \
+	mon_analysis.c \
 	mon_assemble6502.c \
 	mon_assembleR65C02.c \
 	mon_assemble65816.c \
