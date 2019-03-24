@@ -1,0 +1,42 @@
+# Build artifacts
+*.a
+*.o
+
+# Idea
+.idea
+
+# CMake
+cmake-build-debug/
+
+# Autotools
+Makefile
+config.log
+config.status
+src/config.h
+src/stamp-h1
+src/resid/siddefs.h
+src/resid-dtv/siddtvdefs.h
+
+vice-mint-sdl.spec
+src/debug.h
+src/arch/android/AnVICE/AndroidManifest.xml
+src/version.h
+src/vice-version.sh
+
+# Binaries
+src/c1541
+src/cartconv
+src/geninfocontrib
+src/infocontrib.h
+src/petcat
+src/vsid
+src/x128
+src/x64
+src/x64dtv
+src/x64sc
+src/xcbm2
+src/xcbm5x0
+src/xpet
+src/xplus4
+src/xscpu64
+src/xvic
