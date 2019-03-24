@@ -1,0 +1,29 @@
+include_directories(
+        ../arch
+        ../arch/sdl
+        ..
+        ../raster
+        ../joyport
+        ../c64
+        ../c64/cart
+        ../lib/p64
+        ../c64dtv
+)
+
+add_library(vicii
+        vicii-badline.c
+        vicii-clock-stretch.c
+        vicii-cmdline-options.c
+        vicii-color.c
+        vicii-draw.c
+        vicii-fetch.c
+        vicii-irq.c
+        vicii-mem.c
+        vicii-phi1.c
+        vicii-resources.c
+        vicii-snapshot.c
+        vicii-sprites.c
+        vicii-stubs.c
+        vicii-timing.c
+        vicii.c
+)

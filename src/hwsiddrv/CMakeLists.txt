@@ -1,0 +1,50 @@
+include_directories(
+        ../arch
+        ../arch/sdl
+        ..
+        ../sid
+        ../iodrv
+)
+
+add_library(hwsiddrv
+        catweaselmkiii-amiga-drv.c
+        catweaselmkiii-beos-drv.c
+        catweaselmkiii-unix-drv.c
+        catweaselmkiii-win32-drv.c
+        cw-amiga-clockport.c
+        cw-amiga-device.c
+        cw-amiga-openpci.c
+        cw-amiga-os4.c
+        cw-amiga-zorro.c
+        cw-unix-device.c
+        cw-unix-pci.c
+        cw-win32-dll.c
+        cw-win32-pci.c
+        hardsid-amiga-drv.c
+        hardsid-beos-drv.c
+        hardsid-unix-drv.c
+        hardsid-win32-drv.c
+        hs-amiga-gg2isa.c
+        hs-amiga-openpci.c
+        hs-amiga-os4.c
+        hs-beos-isa.c
+        hs-beos-pci.c
+        hs-unix-isa.c
+        hs-unix-linux.c
+        hs-unix-pci.c
+        hs-win32-dll.c
+        hs-win32-isa.c
+        hs-win32-pci.c
+        parsid-beos-drv.c
+        parsid-unix-drv.c
+        parsid-win32-drv.c
+        ps-ieee1284.c
+        ps-unix-file.c
+        ps-unix-io.c
+        ps-win32-dll.c
+        ps-win32-io.c
+        ssi2001-amiga-drv.c
+        ssi2001-beos-drv.c
+        ssi2001-unix-drv.c
+        ssi2001-win32-drv.c
+)

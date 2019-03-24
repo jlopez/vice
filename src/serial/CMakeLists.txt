@@ -1,0 +1,21 @@
+include_directories(
+        ../arch
+        ../arch/sdl
+        ..
+        .
+        ../drive
+        ../lib/p64
+)
+
+add_library(serial
+        fsdrive.c
+        serial-device.c
+        serial-iec-bus.c
+        serial-iec-device.c
+        serial-iec-lib.c
+        serial-iec.c
+        serial-realdevice.c
+        serial-trap.c
+        serial.c
+        realdevice.c
+)

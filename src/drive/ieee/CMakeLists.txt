@@ -1,0 +1,19 @@
+include_directories(
+        ../../arch
+        ../../arch/sdl
+        ../..
+        ..
+        ../../lib/p64
+)
+
+add_library(driveieee
+        fdc.c
+        ieee-cmdline-options.c
+        ieee-resources.c
+        ieee.c
+        ieeerom.c
+        memieee.c
+        riot1d.c
+        riot2d.c
+        via1d2031.c
+)

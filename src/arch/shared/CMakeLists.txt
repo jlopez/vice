@@ -1,0 +1,42 @@
+include_directories(
+    ..
+    ../sdl
+    ../..
+)
+
+add_library(archdep
+        archdep_atexit.c
+        archdep_boot_path.c
+        archdep_cbmfont.c
+        archdep_create_user_config_dir.c
+        archdep_default_autostart_disk_image_file_name.c
+        archdep_default_fliplist_file_name.c
+        archdep_default_resource_file_name.c
+        archdep_default_rtc_file_name.c
+        archdep_default_sysfile_pathlist.c
+        archdep_expand_path.c
+        archdep_extra_title_text.c
+        archdep_file_is_blockdev.c
+        archdep_file_is_chardev.c
+        archdep_filename_parameter.c
+        archdep_fix_permissions.c
+        archdep_get_vice_datadir.c
+        archdep_get_vice_docsdir.c
+        archdep_home_path.c
+        archdep_join_paths.c
+        archdep_make_backup_filename.c
+        archdep_mkdir.c
+        archdep_open_default_log_file.c
+        archdep_path_is_relative.c
+        archdep_program_name.c
+        archdep_program_path.c
+        archdep_quote_parameter.c
+        archdep_rename.c
+        archdep_rmdir.c
+        archdep_sanitize_filename.c
+        archdep_startup_log_error.c
+        archdep_stat.c
+        archdep_tmpnam.c
+        archdep_user_config_path.c
+        archdep_xdg.c
+)

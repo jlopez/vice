@@ -1,0 +1,29 @@
+include_directories(
+        ../arch
+        ../arch/sdl
+        ..
+        .
+        ../samplerdrv
+        ../rtc
+        ../userport
+)
+
+add_library(joyport
+        bbrtc.c
+        cardkey.c
+        coplin_keypad.c
+        cx21.c
+        cx85.c
+        joyport.c
+        joystick.c
+        lightpen.c
+        mouse.c
+        paperclip64.c
+        rushware_keypad.c
+        sampler2bit.c
+        sampler4bit.c
+        script64_dongle.c
+        snespad.c
+        vizawrite64_dongle.c
+        waasoft_dongle.c
+)

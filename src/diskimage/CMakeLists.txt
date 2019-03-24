@@ -1,0 +1,19 @@
+include_directories(
+        ../arch/sdl
+        ../arch
+        ..
+        ../lib/p64
+)
+
+add_library(diskimage
+        diskimage.c
+        fsimage-check.c
+        fsimage-create.c
+        fsimage-dxx.c
+        fsimage-gcr.c
+        fsimage-p64.c
+        fsimage-probe.c
+        fsimage.c
+        rawimage.c
+        realimage.c
+)

@@ -1,0 +1,22 @@
+include_directories(
+        ../arch/sdl
+        ../arch
+        ../resid
+        ../resid-dtv
+        ..
+        .
+        ../joyport
+)
+
+add_library(sid
+        catweaselmkiii.c
+        fastsid.c
+        hardsid.c
+        parsid.c
+        sid-cmdline-options.c
+        sid-resources.c
+        sid-snapshot.c
+        sid.c
+        ssi2001.c
+        resid.cc
+)

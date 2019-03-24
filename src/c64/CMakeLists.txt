@@ -1,0 +1,64 @@
+add_subdirectory(cart)
+
+include_directories(
+        ../arch/sdl
+        ../arch
+        ..
+        .
+        cart
+        ../drive
+        ../drive/iec/c64exp
+        ../raster
+        ../sid
+        ../tape
+        ../userport
+        ../viciisc
+        ../viciivsid
+        ../lib/p64
+        ../video
+        ../rtc
+        ../joyport
+        ../samplerdrv
+        ../tapeport
+        ../core
+        ../hvsc
+)
+
+add_library(c64
+        c64-cmdline-options.c
+        c64-memory-hacks.c
+        c64-resources.c
+        c64-snapshot.c
+        c64.c
+        c64_256k.c
+        c64bus.c
+        c64cia1.c
+        c64cia2.c
+        c64cpu.c
+        c64datasette.c
+        c64drive.c
+        c64embedded.c
+        c64export.c
+        c64fastiec.c
+        c64gluelogic.c
+        c64iec.c
+        c64io.c
+        c64keyboard.c
+        c64mem.c
+        c64meminit.c
+        c64memlimit.c
+        c64memrom.c
+        c64memsnapshot.c
+        c64model.c
+        c64parallel.c
+        c64pla.c
+        c64printer.c
+        c64rom.c
+        c64romset.c
+        c64rsuser.c
+        c64sound.c
+        c64video.c
+        patchrom.c
+        plus256k.c
+        plus60k.c
+)

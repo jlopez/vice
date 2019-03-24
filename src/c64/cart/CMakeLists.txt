@@ -1,0 +1,110 @@
+include_directories(
+        ../../arch
+        ../../arch/sdl
+        ../..
+        ../../core
+        ../../drive
+        ../../rtc
+        ..
+        ../../sid
+        ../../lib/p64
+        ../../vicii
+        ../../rtc
+        ../../samplerdrv
+        ../../arch/shared
+)
+
+add_library(c64cartsystem
+        c64cart.c
+        c64carthooks.c
+        c64cartmem.c
+        crt.c
+)
+
+add_library(c64cart
+        actionreplay2.c
+        actionreplay3.c
+        actionreplay4.c
+        actionreplay.c
+        atomicpower.c
+        c64-generic.c
+        c64-midi.c
+        c64tpi.c
+        capture.c
+        clockport.c
+        clockport-mp3at64.c
+        clockport-rrnet.c
+        comal80.c
+        cpmcart.c
+        daa.c
+        debugcart.c
+        delaep256.c
+        delaep64.c
+        delaep7x8.c
+        diashowmaker.c
+        dinamic.c
+        dqbb.c
+        easycalc.c
+        easyflash.c
+        epyxfastload.c
+        exos.c
+        expert.c
+        final.c
+        final3.c
+        finalplus.c
+        formel64.c
+        freezeframe.c
+        freezemachine.c
+        funplay.c
+        gamekiller.c
+        gmod2.c
+        gs.c
+        ide64.c
+        isepic.c
+        kcs.c
+        kingsoft.c
+        mach5.c
+        magicdesk.c
+        magicformel.c
+        magicvoice.c
+        mikroass.c
+        mmcreplay.c
+        mmc64.c
+        ocean.c
+        pagefox.c
+        prophet64.c
+        ramcart.c
+        retroreplay.c
+        reu.c
+        rexep256.c
+        rexutility.c
+        rgcd.c
+        ross.c
+        rrnetmk3.c
+        shortbus.c
+        shortbus_digimax.c
+        shortbus_etfe.c
+        silverrock128.c
+        simonsbasic.c
+        snapshot64.c
+        stardos.c
+        stb.c
+        superexplode5.c
+        supergames.c
+        supersnapshot.c
+        supersnapshot4.c
+        warpspeed.c
+        westermann.c
+        zaxxon.c
+)
+
+add_library(c64commoncart
+        c64acia1.c
+        cs8900io.c
+        digimax.c
+        ds12c887rtc.c
+        ethernetcart.c
+        georam.c
+        sfx_soundexpander.c
+        sfx_soundsampler.c
+)

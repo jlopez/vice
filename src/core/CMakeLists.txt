@@ -1,0 +1,22 @@
+include_directories(
+        ../arch
+        ../arch/sdl
+        ..
+)
+
+add_library(core
+        ata.c
+        ciacore.c
+        ciatimer.c
+        cs8900.c
+        flash040core.c
+        fmopl.c
+        mc6821core.c
+        m93c86.c
+        riotcore.c
+        ser-eeprom.c
+        spi-sdcard.c
+        t6721.c
+        tpicore.c
+        viacore.c
+)

@@ -1,0 +1,23 @@
+include_directories(
+        ../arch
+        ../arch/sdl
+        ..
+        ../c64/cart
+        ../lib/p64
+        ../rtc
+        ../joyport
+        ../samplerdrv
+        ../diag
+)
+
+add_library(userport
+        userport.c
+        userport_4bit_sampler.c
+        userport_8bss.c
+        userport_dac.c
+        userport_diag_586220_harness.c
+        userport_digimax.c
+        userport_joystick.c
+        userport_rtc_58321a.c
+        userport_rtc_ds1307.c
+)

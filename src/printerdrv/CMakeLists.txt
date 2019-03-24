@@ -1,0 +1,24 @@
+include_directories(
+        ../arch
+        ../arch/sdl
+        ..
+        .
+        ../userport
+)
+
+add_library(printerdrv
+        driver-select.c
+        drv-1520.c
+        drv-ascii.c
+        drv-mps803.c
+        drv-nl10.c
+        drv-raw.c
+        interface-serial.c
+        interface-userport.c
+        output-graphics.c
+        output-select.c
+        output-text.c
+        printer-serial.c
+        printer-userport.c
+        printer.c
+)

@@ -1,0 +1,19 @@
+include_directories(
+        ../../../arch
+        ../../../arch/sdl
+        ../../..
+        ../../../core
+        ../..
+        ..
+        ../../../lib/p64
+)
+
+add_library(driveiecc64exp
+        c64exp-cmdline-options.c
+        c64exp-resources.c
+        iec-c64exp.c
+        dolphindos3.c
+        profdos.c
+        stardos-exp.c
+        supercard.c
+)
