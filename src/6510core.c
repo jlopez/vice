@@ -3317,8 +3317,7 @@ trap_skipped:
 #ifdef FEATURE_DEEPANALYSIS
 #ifndef DRIVE_CPU
         opcode_analysis_info_t analysis_info = analysis_info_tab[p0];
-        if (analysis_info.operand1_access != ACCESS_NONE)
-            monitor_analysis_hook(CLK, LAST_OPCODE_ADDR, p0, addr1, addr2, analysis_info);
+        monitor_analysis_hook(CLK, LAST_OPCODE_ADDR, opcode, addr1, addr2, analysis_info);
 #endif
 #endif
     }

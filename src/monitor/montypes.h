@@ -209,6 +209,8 @@ typedef void monitor_toggle_func_t(int value);
 #define reg_memspace(mr) (HI16_TO_LO16(mr))
 #define reg_regid(mr) (LO16(mr))
 
+#define BAD_ADDR (new_addr(e_invalid_space, 0))
+
 /* Global variables */
 
 extern const char *_mon_space_strings[];
